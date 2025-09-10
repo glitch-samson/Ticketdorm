@@ -1,6 +1,7 @@
-import { useContext } from "react";
+import { useContext, useState } from "react";
 import AppContext from "../context/AppContext";
 import { Link } from "react-router-dom";
+import { updateUserRequest } from "../requests/APIRequest";
 
 const FALLBACK_IMAGES = [
     "https://cdn.builder.io/api/v1/image/assets%2Ff369ea9e51e743788e30f11c53b3d7a9%2Fe98b997f07fd4fb5b2f9aa5e02a2a6ec?format=webp&width=800",
@@ -10,7 +11,14 @@ const FALLBACK_IMAGES = [
 ];
 
 const DashboardFinance = () => {
-    const { orderInformation, eventsInformation, user } = useContext(AppContext);
+    const { orderInformation, eventsInformation, user, token, setUser, setShowLoadingAnimation, setShowModal } = useContext(AppContext);
+
+    const [editMode, setEditMode] = useState(false);
+    const [form, setForm] = useState({
+        fullname: user?.fullname || `${user?.firstname || ''} ${user?.lastname || ''}`,
+        bankName: user?.bankName || '',
+        accountNumber: user?.accountNumber || ''
+    });
 
     const tickets = orderInformation && Array.isArray(orderInformation.tickets) ? orderInformation.tickets : [];
     const ticketsSold = orderInformation && typeof orderInformation.ticketsSold === "number" ? orderInformation.ticketsSold : tickets.length;
@@ -34,28 +42,83 @@ const DashboardFinance = () => {
         date: t.date || t.createdAt || ""
     }));
 
+    const change = e => setForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
+
+    const submit = async e => {
+        e.preventDefault();
+        if (!user || !token) {
+            setShowModal({ heading: "Unauthorized", message: "You must be logged in to update account details.", on: true, success: false });
+            return;
+        }
+
+        setShowLoadingAnimation(true);
+        try {
+            const payload = { fullname: form.fullname, bankName: form.bankName, accountNumber: form.accountNumber };
+            const res = await updateUserRequest(payload, user._id, token);
+            setShowLoadingAnimation(false);
+            if (res && res.success === false) {
+                setShowModal({ heading: "Update Failed", message: res.message || 'Unable to update account details', on: true, success: false });
+                return;
+            }
+
+            // If API returns updated user
+            const updatedUser = res.user || res.data || payload;
+            setUser(prev => ({ ...prev, ...updatedUser }));
+            setShowModal({ heading: "Success", message: "Account details updated successfully.", on: true, success: true });
+            setEditMode(false);
+        } catch (error) {
+            setShowLoadingAnimation(false);
+            setShowModal({ heading: "Network Error", message: "Unable to connect to server. Try again.", on: true, success: false });
+        }
+    };
+
     return (
         <section>
-            <h1 className="font-semibold text-[1.8rem] lg:text-[2rem]">Finance</h1>
+            <div className="flex items-center justify-between">
+                <h1 className="font-semibold text-[1.8rem] lg:text-[2rem]">Finance</h1>
+                {!editMode && <button className="bg-primaryPurple text-white px-[1rem] py-[0.6rem] rounded-[6px]" onClick={() => setEditMode(true)}>Edit Account</button>}
+            </div>
             <p className="my-[1rem]">Account Details</p>
 
             <section className="lg:flex gap-[2rem]">
                 <section className="bg-white border rounded-[8px] p-[1.6rem] flex-1">
                     <h2 className="font-medium text-[1rem] mb-[1rem]">Account Details</h2>
-                    <div className="grid grid-cols-1 gap-[0.8rem] text-left">
-                        <div>
-                            <small className="text-gray-500">Full Name</small>
-                            <div className="font-medium mt-[0.3rem]">{user?.fullname || `${user?.firstname || 'JOHN'} ${user?.lastname || 'DOE'}`}</div>
+
+                    {!editMode ? (
+                        <div className="grid grid-cols-1 gap-[0.8rem] text-left">
+                            <div>
+                                <small className="text-gray-500">Full Name</small>
+                                <div className="font-medium mt-[0.3rem]">{user?.fullname || `${user?.firstname || 'JOHN'} ${user?.lastname || 'DOE'}`}</div>
+                            </div>
+                            <div>
+                                <small className="text-gray-500">Bank Name</small>
+                                <div className="font-medium mt-[0.3rem]">{user?.bankName || 'FIRST BANK'}</div>
+                            </div>
+                            <div>
+                                <small className="text-gray-500">Account Number</small>
+                                <div className="font-medium mt-[0.3rem]">{user?.accountNumber || '2673451419'}</div>
+                            </div>
                         </div>
-                        <div>
-                            <small className="text-gray-500">Bank Name</small>
-                            <div className="font-medium mt-[0.3rem]">{user?.bankName || 'FIRST BANK'}</div>
-                        </div>
-                        <div>
-                            <small className="text-gray-500">Account Number</small>
-                            <div className="font-medium mt-[0.3rem]">{user?.accountNumber || '2673451419'}</div>
-                        </div>
-                    </div>
+                    ) : (
+                        <form onSubmit={submit} className="grid grid-cols-1 gap-[0.8rem] text-left">
+                            <div>
+                                <label className="text-gray-500">Full Name</label>
+                                <input name="fullname" value={form.fullname} onChange={change} className="w-full border rounded-[6px] p-[0.6rem] mt-[0.3rem]" />
+                            </div>
+                            <div>
+                                <label className="text-gray-500">Bank Name</label>
+                                <input name="bankName" value={form.bankName} onChange={change} className="w-full border rounded-[6px] p-[0.6rem] mt-[0.3rem]" />
+                            </div>
+                            <div>
+                                <label className="text-gray-500">Account Number</label>
+                                <input name="accountNumber" value={form.accountNumber} onChange={change} className="w-full border rounded-[6px] p-[0.6rem] mt-[0.3rem]" />
+                            </div>
+                            <div className="flex gap-[0.6rem] mt-[0.6rem]">
+                                <button className="bg-primaryPurple text-white px-[1rem] py-[0.6rem] rounded-[6px]">Save</button>
+                                <button type="button" className="border px-[1rem] py-[0.6rem] rounded-[6px]" onClick={() => setEditMode(false)}>Cancel</button>
+                            </div>
+                        </form>
+                    )}
                 </section>
 
                 <section className="flex-1">
