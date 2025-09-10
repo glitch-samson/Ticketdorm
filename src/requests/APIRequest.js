@@ -190,7 +190,25 @@ const fetchUserEvents = async (userID, token) => {
     }
 };
 
-export { createAccount, signIn, fetchAllEvents, verifyOTPRequest, forgetPasswordRequest, 
+const updateUserRequest = async (userInfo, userID, token) => {
+    try {
+        const response = await fetch(`${apiUrl}/user/update/${userID}/`, {
+            method: "PUT",
+            headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify(userInfo)
+        }),
+        data = await response.json();
+
+        return data;
+    } catch(error) {
+        throw Error("CodeDreadnaught, TicketDorm is unable to update user information.");
+    }
+};
+
+export { createAccount, signIn, fetchAllEvents, verifyOTPRequest, forgetPasswordRequest,
 resetPasswordRequest, buyTicket, buyFreeTicket, createEventRequest, sendTicketEmail,
-fetchUserOrder, fetchUserEvents 
+fetchUserOrder, fetchUserEvents, updateUserRequest
 };
