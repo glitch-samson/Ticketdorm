@@ -9,21 +9,34 @@ const FALLBACK_IMAGES = [
 ];
 
 const Orders = () => {
-    const { orderInformation } = useContext(AppContext);
+    const { orderInformation, eventsInformation, allEvents } = useContext(AppContext);
     const safe = orderInformation || { tickets: [], ticketsSold: 0 };
     const tickets = Array.isArray(safe.tickets) ? safe.tickets : [];
 
-    const rows = useMemo(() => tickets.map((t, idx) => ({
-        id: t._id || idx,
-        orderId: t.orderNumber || `#${Math.floor(Math.random()*1000000)}`,
-        event: t.event || t.eventName || 'Untitled',
-        buyer: t.buyer || t.purchaser || '—',
-        qty: t.quantity || t.qty || 1,
-        amount: t.amount || t.totalAmount || t.price || 0,
-        date: t.date || t.createdAt || '',
-        status: t.status || 'Confirmed',
-        img: (t.eventCover && t.eventCover[0]) || (t.eventCoverPhotos && t.eventCoverPhotos[0]) || FALLBACK_IMAGES[idx % FALLBACK_IMAGES.length]
-    })), [tickets]);
+    // Build a lookup of events from context to find exact images
+    const eventsList = Array.isArray((eventsInformation && eventsInformation.events) ? eventsInformation.events : (allEvents || [])) ? ((eventsInformation && eventsInformation.events) ? eventsInformation.events : (allEvents || [])) : [];
+
+    const rows = useMemo(() => tickets.map((t, idx) => {
+        const eventName = (t.event || t.eventName || '').toString();
+
+        // try to find the matching event object by id or name
+        const match = eventsList.find(e => e && (e._id === t.event || e._id === t.eventID || (e.eventName && e.eventName.toString().toLowerCase() === eventName.toLowerCase()) || (e.name && e.name.toString().toLowerCase() === eventName.toLowerCase())));
+
+        const imgFromMatch = match && match.eventCoverPhotos && match.eventCoverPhotos[0] ? match.eventCoverPhotos[0] : null;
+        const img = imgFromMatch || (t.eventCover && t.eventCover[0]) || (t.eventCoverPhotos && t.eventCoverPhotos[0]) || FALLBACK_IMAGES[idx % FALLBACK_IMAGES.length];
+
+        return {
+            id: t._id || idx,
+            orderId: t.orderNumber || `#${Math.floor(Math.random()*1000000)}`,
+            event: eventName || 'Untitled',
+            buyer: t.buyer || t.purchaser || '—',
+            qty: t.quantity || t.qty || 1,
+            amount: t.amount || t.totalAmount || t.price || 0,
+            date: t.date || t.createdAt || '',
+            status: t.status || 'Confirmed',
+            img
+        };
+    }), [tickets, eventsList]);
 
     return (
         <section>
