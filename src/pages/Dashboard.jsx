@@ -6,16 +6,46 @@ import DashboardHome from "../components/DashboardHome";
 import DashboardEvents from "../components/DashboardEvents";
 import DashboardFinance from "../components/DashboardFinance";
 import Orders from "../components/Orders";
+import { fetchUserOrder, fetchUserEvents } from "../requests/APIRequest";
 
 const Dashboard = () => {
     const [ activeComponent, setActiveComponent] = useState("home"),
-    { dashboardElement, setDashboardElement } = useContext(AppContext);
+    { dashboardElement, setDashboardElement, user, token, setOrderInformation, setEventsInformation, setShowLoadingAnimation, setShowModal } = useContext(AppContext);
 
     useEffect(() => {
         if (window.innerWidth > 900) {
             setDashboardElement(<DashboardHome />);
         }
     }, []);
+
+    useEffect(() => {
+        // fetch dashboard data when authenticated user and token are available
+        if (!user || !token) return;
+
+        setShowLoadingAnimation(true);
+
+        fetchUserOrder(user._id, token)
+        .then(data => {
+            setOrderInformation(data);
+            localStorage.setItem("orderInformation", JSON.stringify(data));
+        })
+        .catch(() => {
+            setShowModal({ heading: "Error", message: "Unable to load orders.", on: true, success: false });
+        })
+        .finally(() => setShowLoadingAnimation(false));
+
+        setShowLoadingAnimation(true);
+        fetchUserEvents(user._id, token)
+        .then(data => {
+            setEventsInformation(data);
+            localStorage.setItem("eventsInformation", JSON.stringify(data));
+        })
+        .catch(() => {
+            setShowModal({ heading: "Error", message: "Unable to load created events.", on: true, success: false });
+        })
+        .finally(() => setShowLoadingAnimation(false));
+
+    }, [user, token]);
 
     const activeComponentHandler = component => {
         setActiveComponent(component);
